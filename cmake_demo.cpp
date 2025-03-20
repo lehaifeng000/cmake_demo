@@ -16,11 +16,8 @@ int main(int argc, char* argv[]) {
     map.searchPath();*/
 
     QApplication a(argc, argv);
-    QMainWindow m;
-    Map *map = new Map(10, 10);
-    map->resize(1000, 1000);
-    m.setCentralWidget(map);
-    m.show();
+	AStar w;
+    w.show();
     
     return a.exec();
 }

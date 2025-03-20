@@ -7,11 +7,24 @@
 #include <QMouseEvent>
 #include <QGridLayout>
 #include <QMainWindow>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QPushButton>
+#include <QThread>
+#include <QTimer>
 
 // 节点
 class Point:public QWidget{
 	Q_OBJECT
 public:
+	int x, y;
+	bool isVisited = false;
+	// g里保存从起点到当前点的距离，h里保存预估当前点到终点的距离
+	double g = std::numeric_limits<double>::max(), h = std::numeric_limits<double>::max();
+	Point* parent = nullptr;
+	//bool isPath = false;
+	QColor backgroundColor;
+
 	// 构造函数
 	Point(QWidget* parent, int x, int y) :QWidget(parent), x(x), y(y) {
 		setMinimumSize(60, 60);
@@ -26,20 +39,34 @@ public:
 		return this->x == other.x && this->y == other.y;
 	}
 
-	int x, y;
-	bool isVisited = false;
-	// g里保存从起点到当前点的距离，h里保存预估当前点到终点的距离
-	double g = std::numeric_limits<double>::max(), h = std::numeric_limits<double>::max();
-	Point* parent = nullptr;
-	bool isPath = false;
-	QColor backgroundColor;
+	void reset() {
+		// 重置
+		isVisited = false;
+		g = std::numeric_limits<double>::max();
+		h = std::numeric_limits<double>::max();
+		parent = nullptr;
+		//isPath = false;
+		backgroundColor = Qt::white;
+		update();
+	}
+
+	void displayPath() {
+		backgroundColor = Qt::red;
+		update();
+	}
+signals:
+	void set_point(int x, int y);
+	
 protected:
 	void mousePressEvent(QMouseEvent* event) override {
-		if (event)
-		if (event->button() == Qt::LeftButton) {
-			backgroundColor = Qt::green;
-			update(); // 触发重绘
+		if (event) {
+			if (event->button() == Qt::LeftButton) {
+				backgroundColor = Qt::green;
+				update(); // 触发重绘
+				emit set_point(x, y);
+			}
 		}
+		
 		QWidget::mousePressEvent(event);
 	}
 	void paintEvent(QPaintEvent* event) override {
@@ -62,10 +89,13 @@ class Map :public QWidget {
 	Q_OBJECT
 public:
 	int w, h;
-	Point startPoint, endPoint;
+	Point *startPoint, *endPoint;
 	std::vector<std::vector<Point*>> arr;
 	QWidget* centralWidget;
 	QGridLayout* gridLayout;
+	std::vector<Point*> path;
+
+	int pointClickCount = 0;
 
 	Map( int h, int w, QWidget* parent = nullptr) :QWidget(parent), w(w), h(h) {
 		gridLayout = new QGridLayout(this);
@@ -78,6 +108,7 @@ public:
 				Point *p = new Point(this, i, j);
 				line.push_back(p);
 				gridLayout->addWidget(p, i, j);
+				connect(p, &Point::set_point, this, &Map::onSetPoint);
 			}
 			arr.push_back(line);
 			setWindowTitle("Grid of Widgets");
@@ -89,7 +120,7 @@ public:
 
 	// 估计点到终点的h距离,这里使用曼哈顿距离
 	double calH(const Point& p) const {
-		return std::abs(p.x - endPoint.x) + std::abs(p.y - endPoint.y);
+		return std::abs(p.x - endPoint->x) + std::abs(p.y - endPoint->y);
 	}
 
 	Point* searchItem(int x, int y, double g) {
@@ -104,30 +135,29 @@ public:
 	double searchPath() {
 		// 根据startPoint像四周遍历
 		std::priority_queue<Point*, std::vector<Point*>, PointCostComp> searchQueue;
-		startPoint.g = 0;
-		startPoint.h = calH(startPoint);
-		searchQueue.push(&startPoint);
+		startPoint->g = 0;
+		startPoint->h = calH(*startPoint);
+		searchQueue.push(startPoint);
 		while (!searchQueue.empty()) {
 			Point* t = searchQueue.top();
-			if (*t == endPoint) {
+			searchQueue.pop();
+			if (*t == *endPoint) {
 				// 遍历到终点
 				std::cout << "search end" << std::endl;
-				std::vector<Point*> path;
 				Point* it = t;
 				path.push_back(it);
 				while (it->parent) {
-					path.push_back(it->parent);
+					path.insert(path.begin(), it->parent);
 					it = it->parent;
 				}
 				// 打印路径
-				for (int i = path.size() - 1; i >= 0; i--) {
+				for (int i = 0; i < path.size() - 1; i++) {
 					std::cout << "(" << path[i]->x << "," << path[i]->y << ")" << std::endl;
-					path[i]->isPath = true;
+					//path[i]->isPath = true;
 				}
-				PrintScreen();
+				//PrintScreen();
 				return t->getCost();
 			}
-			searchQueue.pop();
 			t->isVisited = true; // 设置为已访问
 			// 上
 			if (t->x > 0) {
@@ -165,31 +195,126 @@ public:
 	}
 
 	void setStart(int x, int y) {
-		startPoint.x = x;
-		startPoint.y = y;
+		//startPoint.x = x;
+		//startPoint.y = y;
+		startPoint = arr[x][y];
 	}
 
 	void setEnd(int x, int y) {
-		endPoint.x = x;
-		endPoint.y = y;
+		//endPoint.x = x;
+		//endPoint.y = y;
+		endPoint = arr[x][y];
 	}
-	// 打印路径
-	void PrintScreen() {
+	//// 打印路径
+	//void PrintScreen() {
+
+	//	for (int i = 0; i < h; i++) {
+	//		for (int j = 0; j < w; j++) {
+	//			if (arr[i][j]->isPath) {
+	//				//std::cout << "*";
+	//				std::cout << i << "," << j << std::endl;
+	//			}
+	//			else {
+	//				//std::cout << " ";
+	//			}
+	//		}
+	//		std::cout << std::endl;
+	//	}
+	//}
+	// 重置
+	void reset() {
 		for (int i = 0; i < h; i++) {
 			for (int j = 0; j < w; j++) {
-				if (arr[i][j]->isPath) {
-					//std::cout << "*";
-					std::cout << i << "," << j << std::endl;
-				}
-				else {
-					//std::cout << " ";
-				}
+				// 重置
+				arr[i][j]->reset();
 			}
-			std::cout << std::endl;
 		}
 	}
 protected:
 	void paintEvent(QPaintEvent* event) {
 
 	}
+private slots:
+	// 处理point被点击
+	void onSetPoint(int x, int y) {
+		if (pointClickCount == 0) {
+			setStart(x, y);
+		}
+		else if (pointClickCount == 1) {
+			setEnd(x, y);
+		}
+		pointClickCount++;
+	}
+};
+
+class AStar :public QMainWindow {
+	Q_OBJECT
+public:
+	QVBoxLayout* mainLayout;
+	QHBoxLayout* topLayout;
+	QPushButton* startButton, *resetButton;
+	QWidget* centralWidget;
+	Map* map;
+	int printIndex = 0;
+
+	AStar(QWidget* parent = nullptr) :QMainWindow(parent) {
+		centralWidget = new QWidget(this);
+		centralWidget->resize(1000, 1000);
+		setCentralWidget(centralWidget);
+		mainLayout = new QVBoxLayout(centralWidget);
+		// 添加按钮组
+		topLayout = new QHBoxLayout();
+		startButton = new QPushButton("Start", centralWidget);
+		startButton->setFixedWidth(100);
+		connect(startButton, &QPushButton::clicked, this, &AStar::onStartButtonClicked);
+		topLayout->addWidget(startButton);
+		resetButton = new QPushButton("Reset", centralWidget);
+		resetButton->setFixedWidth(100);
+		connect(resetButton, &QPushButton::clicked, this, &AStar::onResetButtonClicked);
+		topLayout->addWidget(resetButton);
+		mainLayout->addLayout(topLayout);
+		// 添加地图
+		map = new Map(10, 10, centralWidget);
+		mainLayout->addWidget(map);
+		map->resize(800, 800);
+		resize(1000, 1000);
+		map->reset();
+
+	}
+
+	void updatePathStep() {
+		map->path[printIndex++]->displayPath();
+	}
+	// 展示结果，每隔0.3秒从start开始展示路径
+	void printPath() {
+		QTimer* timer = new QTimer(this);
+		int count = 0;
+		connect(timer, &QTimer::timeout, this, [=]() mutable {
+			if (count == map->path.size()) {
+				timer->stop();  // 停止定时器
+				return;
+			}
+			map->path[count]->displayPath();
+			count++;  // 递增计数
+			});
+
+		timer->start(300);  // 每 0.3 秒触发一次
+		//for (int i = 0; i < map->path.size(); i++) {
+		//	
+		//	// 等待0.3秒
+		//	QThread::msleep(300);
+		//}
+	}
+	// 信号槽
+private slots:
+	// 开始按钮
+	void onStartButtonClicked() {
+		map->searchPath();
+		printPath();
+	}
+	// 重置按钮
+	void onResetButtonClicked() {
+		map->reset();
+	}
+	
 };
