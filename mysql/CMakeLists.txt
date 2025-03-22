@@ -15,7 +15,7 @@ project ("mysql")
 find_package(unofficial-libmysql REQUIRED)
 
 # 将源代码添加到此项目的可执行文件。
-add_executable (mysql_test "main.cpp" )
+add_executable (mysql_test "main.cpp" "my_db.hpp" "entity/user.hpp" )
 
 target_link_libraries(mysql_test PRIVATE unofficial::libmysql::libmysql)
 

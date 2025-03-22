@@ -1,8 +1,18 @@
 #include <iostream>
-#include <mysql/mysql.h>
+//#include <mysql/mysql.h>
+#include "my_db.hpp"
+#include "entity/user.hpp"
+#include <vector>
+
 int main()
 {
-    MYSQL* conn;
+	MyDB* mydb = MyDB::GetInstance();
+	std::vector<MyUser> users = mydb->selectAllUser();
+    for (auto user : users) {
+		std::cout << user.id << " " << user.name << " " << user.email << " " << user.age << std::endl;
+    }
+
+    /*MYSQL* conn;
     MYSQL_RES* res;
     MYSQL_ROW row;
 
@@ -34,6 +44,6 @@ int main()
     mysql_free_result(res);
     mysql_close(conn);
 
-    return 0;
+    return 0;*/
 
 }
