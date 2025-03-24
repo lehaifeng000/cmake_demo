@@ -31,6 +31,37 @@ void fastSort(std::vector<T> &arr) {
 	}
 }
 
+template<typename T>
+void adjustHeap(std::vector<T>& arr, int ind, int length) {
+	T temp = arr[ind];
+	for (int i = ind * 2 + 1; i < length; i = i * 2 + 1) {
+		if (i + 1 < length && arr[i] < arr[i + 1]) {
+			i++;
+		}
+		if (arr[i] > temp) {
+			arr[ind] = arr[i];
+			ind = i;
+		}
+		else {
+			break;
+		}
+	}
+	arr[ind] = temp;
+}
+template<typename T>
+void heapSort(std::vector<T>& arr) {
+	// 构建大顶堆
+	for (int i = arr.size() / 2 - 1; i >= 0; i--) {
+		// 从最后一个非叶子节点开始调整
+		// 判断是否大于它的子节点
+		adjustHeap(arr, i, arr.size());
+	}
+	for (int i = arr.size() - 1; i > 0; i--) {
+		std::swap(arr[0], arr[i]);// 把当前最大的放到最后
+		adjustHeap(arr, 0, i);// 长度为i,即i之后的元素不再参与调整
+	}
+}
+
 
 int main()
 {
@@ -39,7 +70,8 @@ int main()
 	for (auto i : arr) {
 		std::cout << i << " ";
 	}
-	fastSort(arr);
+	//fastSort(arr);
+	heapSort(arr);
 	std::cout << std::endl;
 	for (auto i : arr) {
 		std::cout << i << " ";
